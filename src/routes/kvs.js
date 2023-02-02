@@ -11,21 +11,20 @@ router.put("/", async (req, res) => {
         v = req.body.val
         // console.log(req.query.key)
         if (process.env.FORWARDING_ADDRESS) {
-            console.log("forwardin..."+process.env.FORWARDING_ADDRESS)
-            try{
-                const forward = await axios( {
+            try {
+                const forward = await axios({
                     method: 'put',
-                    url: `http://${process.env.FORWARDING_ADDRESS}`,
+                    url: `http://${process.env.FORWARDING_ADDRESS}/kvs`,
                     data: {
-                        key: k,
-                        val: v
-                    }
+                        "key": k,
+                        "val": v
+                    },
+                     
                 })
                 res.status(forward.status).json(forward.data)
-            }catch(err){
-                console.log("forwarding error")
-                console.log(err)
-                res.status(500).json(err)
+            } catch (err) {
+                // console.log("forwarding error")
+                res.status(503).json({"error": "upstream down", "upstream": process.env.FORWARDING_ADDRESS})
             }
         } else {
             if (k == undefined || v == undefined) {
@@ -48,22 +47,23 @@ router.put("/", async (req, res) => {
 
 router.get("/", async (req, res) => {
     try {
+        k = req.body.key
         if (process.env.FORWARDING_ADDRESS) {
-            try{
-                const forward = await axios( {
+            try {
+                const forward = await axios({
                     method: 'get',
-                    url: process.env.FORWARDING_ADDRESS,
+                    url: `http://${process.env.FORWARDING_ADDRESS}/kvs`,
                     data: {
-                        key: k
-                    }
+                        "key": k
+                    },
+                    timeout: 10000
                 })
                 res.status(forward.status).json(forward.data)
-            }catch(err){
+            } catch (err) {
                 console.log("forwarding error")
-                res.status(500).json(err)
+                res.status(503).json(err)
             }
         } else {
-            k = req.body.key
             if (k == undefined) {
                 res.status(400).json({ "error": "bad GET" })
             } else if (data.has(k)) {
@@ -80,14 +80,34 @@ router.get("/", async (req, res) => {
 router.delete("/", async (req, res) => {
     try {
         k = req.body.key
-        if (k == undefined) {
-            res.status(400).json({ "error": "bad DELETE" })
-        } else if (data.has(k)) {
-            prev = data.get(k)
-            data.delete(k)
-            res.status(200).json({ "prev": prev })
+        console.log(k)
+        if (process.env.FORWARDING_ADDRESS) {
+            console.log(k)
+            try {
+                const forward = await axios({
+                    method: 'delete',
+                    url: `http://${process.env.FORWARDING_ADDRESS}/kvs`,
+                    data: {
+                        "key": k
+                    },
+                    timeout: 10000
+                })
+                res.status(forward.status).json(forward.data)
+            } catch (err) {
+                console.log("forwarding error")
+                res.status(503).json(err)
+            }
         } else {
-            res.status(404).json({ "error": "not found" })
+            console.log("asd")
+            if (k == undefined) {
+                res.status(400).json({ "error": "bad DELETE" })
+            } else if (data.has(k)) {
+                prev = data.get(k)
+                data.delete(k)
+                res.status(200).json({ "prev": prev })
+            } else {
+                res.status(404).json({ "error": "not found" })
+            }
         }
     } catch (err) {
         res.status(500).json(err);
